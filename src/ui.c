@@ -868,23 +868,6 @@ void CreateSmallButtons(HWND hDlg)
 	tbToolbarButtons[0].iBitmap = 0;
 	SendMessage(hSaveToolbar, TB_ADDBUTTONS, (WPARAM)1, (LPARAM)&tbToolbarButtons);
 	SetAccessibleName(hSaveToolbar, lmprintf(MSG_313));
-
-	hHashToolbar = CreateWindowEx(0, TOOLBARCLASSNAME, NULL, TOOLBAR_STYLE,
-		0, 0, 0, 0, hMainDialog, (HMENU)IDC_HASH_TOOLBAR, hMainInstance, NULL);
-	hHashImageList = ImageList_Create(i16, i16, ILC_COLOR32 | ILC_HIGHQUALITYSCALE | ILC_MIRROR, 1, 0);
-	buffer = GetResource(hMainInstance, MAKEINTRESOURCEA(IDI_HASH_16 + icon_offset), _RT_RCDATA, "hash icon", &bufsize, FALSE);
-	hIconHash = CreateIconFromResourceEx(buffer, bufsize, TRUE, 0x30000, 0, 0, 0);
-	ImageList_AddIcon(hHashImageList, hIconHash);
-	DestroyIcon(hIconHash);
-	SendMessage(hHashToolbar, TB_SETIMAGELIST, (WPARAM)0, (LPARAM)hHashImageList);
-	SendMessage(hHashToolbar, TB_BUTTONSTRUCTSIZE, (WPARAM)sizeof(TBBUTTON), 0);
-	memset(tbToolbarButtons, 0, sizeof(TBBUTTON));
-	tbToolbarButtons[0].idCommand = IDC_HASH;
-	tbToolbarButtons[0].fsStyle = BTNS_AUTOSIZE;
-	tbToolbarButtons[0].fsState = TBSTATE_ENABLED;
-	tbToolbarButtons[0].iBitmap = 0;
-	SendMessage(hHashToolbar, TB_ADDBUTTONS, (WPARAM)1, (LPARAM)&tbToolbarButtons);
-	SetAccessibleName(hHashToolbar, lmprintf(MSG_314));
 }
 
 static INT_PTR CALLBACK ProgressCallback(HWND hCtrl, UINT message, WPARAM wParam, LPARAM lParam)

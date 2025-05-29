@@ -180,43 +180,8 @@ static void SetAllowedFileSystems(void)
 	switch (selection_default) {
 	case BT_NON_BOOTABLE:
 		for (i = 0; i < FS_MAX; i++)
-			allowed_filesystem[i] = TRUE;
-		break;
-	case BT_MSDOS:
-	case BT_FREEDOS:
-		allowed_filesystem[FS_FAT16] = TRUE;
-		allowed_filesystem[FS_FAT32] = TRUE;
-		break;
-	case BT_IMAGE:
-		if ((image_path == NULL) || !HAS_NTFSLESS_GRUB(img_report))
-			allowed_filesystem[FS_NTFS] = TRUE;
-		// Don't allow anything besides NTFS if the image is not compatible
-		if ((image_path != NULL) && !IS_FAT32_COMPAT(img_report))
-			break;
-		if (!HAS_WINDOWS(img_report) || (target_type != TT_BIOS) || allow_dual_uefi_bios) {
-			if (!HAS_WINTOGO(img_report) || (ComboBox_GetCurItemData(hImageOption) != IMOP_WIN_TO_GO)) {
-				allowed_filesystem[FS_FAT16] = TRUE;
-				allowed_filesystem[FS_FAT32] = TRUE;
-			}
-		}
-		break;
-	case BT_GRUB2:
-		allowed_filesystem[FS_EXT2] = TRUE;
-		allowed_filesystem[FS_EXT3] = TRUE;
-		allowed_filesystem[FS_EXT4] = TRUE;
-		// Fall through
-	case BT_SYSLINUX_V6:
-	case BT_GRUB4DOS:
-		allowed_filesystem[FS_NTFS] = TRUE;
-		// Fall through
-	case BT_SYSLINUX_V4:
-	case BT_REACTOS:
-		allowed_filesystem[FS_FAT16] = TRUE;
-		allowed_filesystem[FS_FAT32] = TRUE;
-		break;
-	case BT_UEFI_NTFS:
-		allowed_filesystem[FS_NTFS] = TRUE;
-		allowed_filesystem[FS_EXFAT] = TRUE;
+			allowed_filesystem[FS_EXFAT] = TRUE;
+			allowed_filesystem[FS_FAT32] = TRUE;
 		break;
 	}
 }
@@ -224,31 +189,18 @@ static void SetAllowedFileSystems(void)
 // Populate the Boot selection dropdown
 static void SetBootOptions(void)
 {
-	char tmp[32];
+    // Clear everything
+    IGNORE_RETVAL(ComboBox_ResetContent(hBootType));
 
-	IGNORE_RETVAL(ComboBox_ResetContent(hBootType));
-	IGNORE_RETVAL(ComboBox_SetItemData(hBootType, ComboBox_AddStringU(hBootType, lmprintf(MSG_279)), BT_NON_BOOTABLE));
-	IGNORE_RETVAL(ComboBox_SetItemData(hBootType, ComboBox_AddStringU(hBootType,
-		(image_path == NULL) ? lmprintf(MSG_281, lmprintf(MSG_280)) : short_image_path), BT_IMAGE));
-	image_index = 1;
-	IGNORE_RETVAL(ComboBox_SetItemData(hBootType, ComboBox_AddStringU(hBootType, "MS-DOS"), BT_MSDOS));
-	IGNORE_RETVAL(ComboBox_SetItemData(hBootType, ComboBox_AddStringU(hBootType, "FreeDOS"), BT_FREEDOS));
+    // Add only “Non-bootable”
+    IGNORE_RETVAL(ComboBox_SetItemData(
+        hBootType,
+        ComboBox_AddStringU(hBootType, lmprintf(MSG_279)),
+        BT_NON_BOOTABLE));
 
-	if (advanced_mode_device) {
-		static_sprintf(tmp, "Syslinux %s", embedded_sl_version_str[0]);
-		IGNORE_RETVAL(ComboBox_SetItemData(hBootType, ComboBox_AddStringU(hBootType, tmp), BT_SYSLINUX_V4));
-		static_sprintf(tmp, "Syslinux %s", embedded_sl_version_str[1]);
-		IGNORE_RETVAL(ComboBox_SetItemData(hBootType, ComboBox_AddStringU(hBootType, tmp), BT_SYSLINUX_V6));
-		IGNORE_RETVAL(ComboBox_SetItemData(hBootType, ComboBox_AddStringU(hBootType, "ReactOS"), BT_REACTOS));
-		IGNORE_RETVAL(ComboBox_SetItemData(hBootType, ComboBox_AddStringU(hBootType,
-			"Grub " GRUB2_PACKAGE_VERSION), BT_GRUB2));
-		IGNORE_RETVAL(ComboBox_SetItemData(hBootType, ComboBox_AddStringU(hBootType,
-			"Grub4DOS " GRUB4DOS_VERSION), BT_GRUB4DOS));
-		IGNORE_RETVAL(ComboBox_SetItemData(hBootType, ComboBox_AddStringU(hBootType, "UEFI:NTFS"), BT_UEFI_NTFS));
-	}
-	if ((!advanced_mode_device) && (selection_default >= BT_SYSLINUX_V4))
-		selection_default = BT_IMAGE;
-	SetComboEntry(hBootType, selection_default);
+    // Make it the default selection
+    selection_default = BT_NON_BOOTABLE;
+    SetComboEntry(hBootType, selection_default);
 }
 
 static void SetPartitionSchemeAndTargetSystem(BOOL only_target)
@@ -517,7 +469,7 @@ static BOOL SetFileSystemAndClusterSize(char* fs_name)
 		if ((SelectedDrive.DiskSize >= 256 * MB) && (SelectedDrive.DiskSize < 32 * GB)) {
 			for (i = 8; i <= 32; i <<= 1) {			// 256 MB -> 32 GB
 				if (SelectedDrive.DiskSize * 1.0f < i * GB * FAT32_CLUSTER_THRESHOLD) {
-					SelectedDrive.ClusterSize[FS_FAT32].Default = ((ULONG)i / 2) * KB;
+					SelectedDrive.ClusterSize[FS_FAT32].Default = 0x00008000;
 					break;
 				}
 			}
@@ -542,9 +494,9 @@ static BOOL SetFileSystemAndClusterSize(char* fs_name)
 		// exFAT
 		SelectedDrive.ClusterSize[FS_EXFAT].Allowed = 0x03FFFE00;
 		if (SelectedDrive.DiskSize < 256 * MB)	// < 256 MB
-			SelectedDrive.ClusterSize[FS_EXFAT].Default = 4 * KB;
+			SelectedDrive.ClusterSize[FS_EXFAT].Default = 128 * KB;
 		else if (SelectedDrive.DiskSize < 32 * GB)	// < 32 GB
-			SelectedDrive.ClusterSize[FS_EXFAT].Default = 32 * KB;
+			SelectedDrive.ClusterSize[FS_EXFAT].Default = 128 * KB;
 		else
 			SelectedDrive.ClusterSize[FS_EXFAT].Default = 128 * KB;
 
@@ -862,8 +814,8 @@ void EnableControls(BOOL enable, BOOL remove_checkboxes)
 	EnableWindow(hBootType, enable);
 	EnableWindow(hSelectImage, enable);
 	EnableWindow(GetDlgItem(hMainDialog, IDC_LIST_USB_HDD), enable);
-	EnableWindow(hAdvancedDeviceToolbar, enable);
-	EnableWindow(hAdvancedFormatToolbar, enable);
+	EnableWindow(hAdvancedDeviceToolbar, false);
+	EnableWindow(hAdvancedFormatToolbar, false);
 	SendMessage(hMultiToolbar, TB_ENABLEBUTTON, (WPARAM)IDC_LANG, (LPARAM)enable);
 	SendMessage(hMultiToolbar, TB_ENABLEBUTTON, (WPARAM)IDC_ABOUT, (LPARAM)enable);
 	SendMessage(hMultiToolbar, TB_ENABLEBUTTON, (WPARAM)IDC_SETTINGS, (LPARAM)enable);
@@ -891,7 +843,7 @@ void EnableControls(BOOL enable, BOOL remove_checkboxes)
 	EnableWindow(hTargetSystem, enable);
 	EnableWindow(GetDlgItem(hMainDialog, IDS_CSM_HELP_TXT), enable);
 	EnableWindow(hFileSystem, enable);
-	EnableWindow(hClusterSize, enable);
+	EnableWindow(hClusterSize, false);
 }
 
 // Populate the UI main dropdown properties.
@@ -923,9 +875,8 @@ static BOOL PopulateProperties(void)
 
 	EnableControls(TRUE, FALSE);
 
-	// Set a proposed label according to the size (eg: "256MB", "8GB")
-	static_sprintf(SelectedDrive.proposed_label, "%s",
-		SizeToHumanReadable(SelectedDrive.DiskSize, FALSE, TRUE));
+	// Set proposed label)
+	static_sprintf(SelectedDrive.proposed_label, "SC64");
 
 	// Add a tooltip (with the size of the device in parenthesis)
 	device_tooltip = (char*) malloc(safe_strlen(rufus_drive[device_index].name) + 32);
@@ -1146,26 +1097,7 @@ static void DisplayISOProps(void)
 // Insert the image name into the Boot selection dropdown and (re)populate the Image option dropdown
 static void UpdateImage(BOOL update_image_option_only)
 {
-	if_not_assert(image_index != 0)
-		return;
-
-	if (!update_image_option_only) {
-		if (ComboBox_GetItemData(hBootType, image_index) == BT_IMAGE)
-			ComboBox_DeleteString(hBootType, image_index);
-		ComboBox_InsertStringU(hBootType, image_index,
-			(image_path == NULL) ? lmprintf(MSG_281, lmprintf(MSG_280)) : short_image_path);
-		ComboBox_SetItemData(hBootType, image_index, BT_IMAGE);
-		IGNORE_RETVAL(ComboBox_SetCurSel(hBootType, image_index));
-		boot_type = (int)ComboBox_GetCurItemData(hBootType);
-		SetBootTypeDropdownWidth();
-	}
-
-	ComboBox_ResetContent(hImageOption);
-
-	if (!img_report.is_windows_img)	// Straight install.wim/install.esd only have Windows To Go option
-		IGNORE_RETVAL(ComboBox_SetItemData(hImageOption, ComboBox_AddStringU(hImageOption, lmprintf(MSG_117)), IMOP_WIN_STANDARD));
-	IGNORE_RETVAL(ComboBox_SetItemData(hImageOption, ComboBox_AddStringU(hImageOption, lmprintf(MSG_118)), IMOP_WIN_TO_GO));
-	IGNORE_RETVAL(ComboBox_SetCurSel(hImageOption, imop_win_sel));
+    // nothing to do
 }
 
 enum ArchType MachineToArch(WORD machine)
@@ -2017,6 +1949,18 @@ static void InitDialog(HWND hDlg)
 	hNBPasses = GetDlgItem(hDlg, IDC_NB_PASSES);
 	hStart = GetDlgItem(hDlg, IDC_START);
 
+	ShowWindow(hBootType,        SW_HIDE);
+    ShowWindow(GetDlgItem(hDlg, IDS_BOOT_SELECTION_TXT), SW_HIDE);   // label :contentReference[oaicite:3]{index=3}
+
+    ShowWindow(hPartitionScheme, SW_HIDE);
+    ShowWindow(GetDlgItem(hDlg, IDS_PARTITION_TYPE_TXT), SW_HIDE);   // your partition-scheme label
+
+    ShowWindow(hTargetSystem,    SW_HIDE);
+    ShowWindow(GetDlgItem(hDlg, IDS_TARGET_SYSTEM_TXT),  SW_HIDE);   // its label
+
+    ShowWindow(hSelectImage,     SW_HIDE);                           // the “Select/Download” split button
+    ShowWindow(GetDlgItem(hDlg, IDC_DOWNLOAD),  SW_HIDE);           // if your RC has a separate DOWNLOAD ID
+
 	// Convert the main button labels to uppercase
 	GetWindowTextU(hStart, uppercase_start, sizeof(uppercase_start));
 	CharUpperBuffU(uppercase_start, sizeof(uppercase_start));
@@ -2150,6 +2094,12 @@ static void InitDialog(HWND hDlg)
 	CheckDlgButton(hDlg, IDC_EXTENDED_LABEL, BST_CHECKED);
 
 	CreateAdditionalControls(hDlg);
+
+	// ── hide the “Advanced Drive Properties” dropdown ──
+    ShowWindow(hAdvancedDeviceToolbar, SW_HIDE);
+    // ── hide the “Advanced Format Options” dropdown ──
+    ShowWindow(hAdvancedFormatToolbar, SW_HIDE);
+
 	SetSectionHeaders(hDlg, &hSectionHeaderFont);
 	PositionMainControls(hDlg);
 	AdjustForLowDPI(hDlg);

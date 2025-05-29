@@ -1889,8 +1889,7 @@ DWORD WINAPI FormatThread(void* param)
 			safe_unlockclose(hLogicalVolume);
 		}
 	} else {
-		if (IsChecked(IDC_EXTENDED_LABEL))
-			SetAutorun(drive_name);
+		//
 	}
 	CHECK_FOR_USER_CANCEL;
 
@@ -1983,7 +1982,7 @@ DWORD WINAPI FormatThread(void* param)
 		if ((boot_type == BT_IMAGE) && (image_path != NULL) && (img_report.is_iso) && (!windows_to_go))
 			UpdateMD5Sum(drive_name, md5sum_name[img_report.has_md5sum ? img_report.has_md5sum - 1 : 0]);
 		if (IsChecked(IDC_EXTENDED_LABEL))
-			SetAutorun(drive_name);
+			//SetAutorun(drive_name);
 		// Issue another complete remount before we exit, to ensure we're clean
 		RemountVolume(drive_name, TRUE);
 		// NTFS fixup (WinPE/AIK images don't seem to boot without an extra checkdisk)
